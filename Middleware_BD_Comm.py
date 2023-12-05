@@ -483,10 +483,10 @@ if __name__ == "__main__":
     nodo.insert_initial_sucursales()
 
     # Registra la función de manejo de señales para la interrupción (Ctrl+C)
-    signal.signal(signal.SIGINT, nodo.signal_handler)
+    #signal.signal(signal.SIGINT, nodo.signal_handler)
 
     # Registra la función de manejo de señales para Ctrl+Z (suspender)
-    signal.signal(signal.SIGTSTP, nodo.signal_stop_handler)
+    #signal.signal(signal.SIGTSTP, nodo.signal_stop_handler)
 
     # Iniciar el servidor en el nodo
     server_thread = threading.Thread(target=nodo.start_server, args=(nodo.get_current_sucursal_ip(), 2222))
