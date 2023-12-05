@@ -6,6 +6,7 @@ import sqlite3
 import random
 import time
 from prettytable import PrettyTable
+from threading import Lock
 
 # Clase NODO
 class Nodo:
@@ -13,6 +14,7 @@ class Nodo:
         self.db_path = db_path
         self.connection = sqlite3.connect(db_path)
         self.cursor = self.connection.cursor()
+        self.db_lock = Lock()
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
@@ -27,13 +29,13 @@ class Nodo:
     # Función para manejar la comunicación con un nodo remoto
     def handle_client(self, client_socket):
         try:
-            data = client_socket.recv(1024).decode()
-            if data:
-                #print(f"Mensaje recibido: {data}")
-                parts = data.split('|')
-                if parts[0] == 'create_cliente' and len(parts) == 5:
-                    usuario, nombre, direccion, tarjeta = parts[1:]
-                    self.create_cliente(self.cursor, usuario, nombre, direccion, int(tarjeta))
+            with self.db_lock:
+                data = client_socket.recv(1024).decode()
+                if data:
+                    partes = data.split('|')
+                    if partes[0] == 'create_cliente' and len(partes) == 5:
+                        usuario, nombre, direccion, tarjeta = partes[1:]
+                        self.create_cliente(self.cursor, usuario, nombre, direccion, int(tarjeta))
         except Exception as e:
             print(f"Error al recibir datos del cliente: {e}")
         finally:
