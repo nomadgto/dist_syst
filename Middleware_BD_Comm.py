@@ -10,6 +10,7 @@ from prettytable import PrettyTable
 # Clase NODO
 class Nodo:
     def __init__(self, db_path):
+        self.db_path = db_path
         self.connection = sqlite3.connect(db_path)
         self.cursor = self.connection.cursor()
 
@@ -26,22 +27,16 @@ class Nodo:
     # Función para manejar la comunicación con un nodo remoto
     def handle_client(self, client_socket):
         try:
-            # Crear una nueva conexión SQLite para cada hilo
-            connection = sqlite3.connect(self.db_path)
-            cursor = connection.cursor()
-
             data = client_socket.recv(1024).decode()
             if data:
-                print(f"Mensaje recibido: {data}")
+                #print(f"Mensaje recibido: {data}")
                 parts = data.split('|')
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
-                    self.create_cliente(cursor, usuario, nombre, direccion, int(tarjeta))
+                    self.create_cliente(self.cursor, usuario, nombre, direccion, int(tarjeta))
         except Exception as e:
             print(f"Error al recibir datos del cliente: {e}")
         finally:
-            # Cerrar la conexión al finalizar
-            connection.close()
             client_socket.close()
 
     # Función para iniciar el servidor en un nodo
