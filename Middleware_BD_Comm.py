@@ -2,7 +2,8 @@ import socket
 import threading
 import signal
 import sys
-from sqlitepool import ConnectionPool
+import sqlite3
+from cuttlepool import CuttlePool
 import random
 import time
 from prettytable import PrettyTable
@@ -11,8 +12,8 @@ from prettytable import PrettyTable
 class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.pool = ConnectionPool.load(db_path)
-        self.connection = self.pool.connect()
+        self.pool = CuttlePool(sqlite3, database=db_path, check_same_thread=False)
+        self.connection = self.pool.get_connection()
         self.cursor = self.connection.cursor()
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
@@ -30,7 +31,6 @@ class Nodo:
         try:
             data = client_socket.recv(1024).decode()
             if data:
-                #print(f"Mensaje recibido: {data}")
                 parts = data.split('|')
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
