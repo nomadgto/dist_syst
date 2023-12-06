@@ -45,7 +45,7 @@ class Nodo:
                 parts = data.split('|')
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
-                    self.create_cliente(self.cursor, usuario, nombre, direccion, int(tarjeta))
+                    self.create_cliente(self, usuario, nombre, direccion, int(tarjeta))
         except Exception as e:
             print(f"Error al recibir datos del cliente: {e}")
         finally:
@@ -343,7 +343,7 @@ class Nodo:
                     message = f"create_cliente|{usuario}|{nombre}|{direccion}|{tarjeta}"
                     self.send_messages_to_nodes(message)
 
-                    self.create_cliente(self.cursor, usuario, nombre, direccion, tarjeta)
+                    self.create_cliente(self, usuario, nombre, direccion, tarjeta)
             elif choice == '2':
                 self.read_cliente()
             elif choice == '3':
