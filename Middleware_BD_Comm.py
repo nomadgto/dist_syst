@@ -8,6 +8,18 @@ import random
 import time
 from prettytable import PrettyTable
 
+class SQLiteConnectionWrapper:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.connection = sqlite3.connect(db_path)
+        self.cursor = self.connection.cursor()
+
+    def __enter__(self):
+        return self.cursor
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.connection.commit()
+
 # Clase NODO
 class Nodo:
     def __init__(self, db_path):
