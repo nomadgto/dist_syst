@@ -24,9 +24,13 @@ class SQLiteConnectionWrapper:
 class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.pool = CuttlePool(sqlite3, database=db_path, check_same_thread=False, capacity=10)
-        self.connection = self.pool.get_connection()
-        self.cursor = self.connection.cursor()
+        # Ajusta el valor de 'capacity' según tus necesidades
+        self.pool = CuttlePool(SQLiteConnectionWrapper, db_path, capacity=10)
+        self.connection = None
+        self.cursor = None
+
+    def get_connection(self):
+        return self.pool.get_connection().cursor
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
