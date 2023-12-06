@@ -25,7 +25,7 @@ class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
         # Ajusta el valor de 'capacity' según tus necesidades
-        self.pool = CuttlePool(SQLiteConnectionWrapper, db_path, capacity=10)
+        self.pool = CuttlePool(SQLiteConnectionWrapper, db_path)
         self.connection = None
         self.cursor = None
 
