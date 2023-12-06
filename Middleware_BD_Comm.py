@@ -15,7 +15,7 @@ class SQLiteConnectionWrapper:
         self.cursor = self.connection.cursor()
 
     def __enter__(self):
-        return self.cursor
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.connection.commit()
@@ -24,7 +24,6 @@ class SQLiteConnectionWrapper:
 class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
-        # Ajusta el valor de 'capacity' según tus necesidades
         self.pool = CuttlePool(SQLiteConnectionWrapper, db_path)
         self.connection = None
         self.cursor = None
