@@ -12,7 +12,7 @@ from prettytable import PrettyTable
 class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.pool = CuttlePool(sqlite3, database=db_path, check_same_thread=False)
+        self.pool = CuttlePool(sqlite3, database=db_path, check_same_thread=False, capacity=10)
         self.connection = self.pool.get_connection()
         self.cursor = self.connection.cursor()
 
