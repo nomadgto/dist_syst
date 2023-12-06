@@ -3,33 +3,28 @@ import threading
 import signal
 import sys
 import sqlite3
-from cuttlepool import CuttlePool
 import random
 import time
 from prettytable import PrettyTable
-
-class SQLiteConnectionWrapper:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self.connection = sqlite3.connect(db_path)
-        self.cursor = self.connection.cursor()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.connection.commit()
 
 # Clase NODO
 class Nodo:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.pool = CuttlePool(SQLiteConnectionWrapper, self.db_path)
         self.connection = None
         self.cursor = None
+        self.connection_lock = threading.Lock()
+        self.connect_to_database()
 
-    def get_connection(self):
-        return self.pool.get_connection().cursor
+    def connect_to_database(self):
+        with self.connection_lock:
+            self.connection = sqlite3.connect(self.db_path)
+            self.cursor = self.connection.cursor()
+
+    def close_database_connection(self):
+        with self.connection_lock:
+            if self.connection:
+                self.connection.close()
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
@@ -46,6 +41,7 @@ class Nodo:
         try:
             data = client_socket.recv(1024).decode()
             if data:
+                #print(f"Mensaje recibido: {data}")
                 parts = data.split('|')
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
@@ -142,13 +138,14 @@ class Nodo:
         table.add_rows(rows)
         print(table)
 
-    def create_cliente(self, cursor, usuario, nombre, direccion, tarjeta):
-        status = "Activo"
-        cursor.execute("""
-            INSERT INTO CLIENTE (usuario, nombre, direccion, tarjeta, status)
-            VALUES (?, ?, ?, ?, ?)
-        """, (usuario, nombre, direccion, tarjeta, status))
-        cursor.connection.commit()
+    def create_cliente(self, usuario, nombre, direccion, tarjeta):
+        with self.connection_lock:
+            status = "Activo"
+            self.cursor.execute("""
+                INSERT INTO CLIENTE (usuario, nombre, direccion, tarjeta, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (usuario, nombre, direccion, tarjeta, status))
+            self.connection.commit()
 
     def read_cliente(self):
         self.pretty_table_query("CLIENTE")
@@ -488,14 +485,13 @@ if __name__ == "__main__":
     nodo.create_tables()
     nodo.insert_initial_sucursales()
 
-    # Registra la función de manejo de señales para la interrupción (Ctrl+C)
     signal.signal(signal.SIGINT, nodo.signal_handler)
-
-    # Registra la función de manejo de señales para Ctrl+Z (suspender)
     signal.signal(signal.SIGTSTP, nodo.signal_stop_handler)
 
-    # Iniciar el servidor en el nodo
     server_thread = threading.Thread(target=nodo.start_server, args=(nodo.get_current_sucursal_ip(), 2222))
     server_thread.start()
 
-    nodo.main_menu()
+    try:
+        nodo.main_menu()
+    finally:
+        nodo.close_database_connection()
