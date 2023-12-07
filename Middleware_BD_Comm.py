@@ -29,18 +29,21 @@ class Nodo:
         try:
             data = client_socket.recv(1024).decode()
             if data:
-                #print(f"Mensaje recibido: {data}")
+                # print(f"Mensaje recibido: {data}")
                 parts = data.split('|')
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
                     # Crear un nuevo cursor para este hilo
-                    cursor = self.connection.cursor()
+                    local_connection = sqlite3.connect(self.db_path)
+                    cursor = local_connection.cursor()
                     self.create_cliente(cursor, usuario, nombre, direccion, int(tarjeta))
                     cursor.close()
+                    local_connection.close()
         except Exception as e:
             print(f"Error al recibir datos del cliente: {e}")
         finally:
             client_socket.close()
+
 
     # Función para iniciar el servidor en un nodo
     def start_server(self, ip, port):
