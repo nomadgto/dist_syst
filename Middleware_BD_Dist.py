@@ -33,6 +33,10 @@ class Nodo:
                 local_connection = sqlite3.connect(self.db_path)
                 cursor = local_connection.cursor()
                 parts = data.split('|')
+
+                print("Valores de parts:", parts)
+                print("Longitud de parts:", len(parts))
+
                 if parts[0] == 'create_cliente' and len(parts) == 5:
                     usuario, nombre, direccion, tarjeta = parts[1:]
                     self.create_cliente(cursor, usuario, nombre, direccion, int(tarjeta))
@@ -45,7 +49,7 @@ class Nodo:
                 elif parts[0] == 'deactivate_cliente' and len(parts) == 2:
                     usuario = parts[1]
                     self.deactivate_cliente(cursor, usuario)
-                elif parts[0] == 'create_articulo' and len(parts) == 4:
+                elif parts[0] == 'create_articulo' and len(parts) == 5:
                     codigo, nombre, precio, id_sucursal = parts[1:]
                     print("\nAntes de create")
                     self.create_articulo(cursor, int(codigo), nombre, float(precio), int(id_sucursal))
@@ -59,7 +63,7 @@ class Nodo:
                 elif parts[0] == 'deactivate_articulo' and len(parts) == 2:
                     codigo = parts[1]
                     self.deactivate_articulo(cursor, int(codigo))
-                elif parts[0] == 'create_guia_envio' and len(parts) == 6:
+                elif parts[0] == 'create_guia_envio' and len(parts) == 7:
                     id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra = parts[1:]
                     self.create_guia_envio(cursor, int(id_cliente), int(id_articulo), int(id_sucursal), int(serie), float(monto_total), fecha_compra)
                 cursor.close()
