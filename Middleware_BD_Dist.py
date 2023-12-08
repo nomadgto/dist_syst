@@ -154,11 +154,11 @@ class Nodo:
             # Modificar los valores iniciales si es necesario.
             # Cambiar las ip´s de los nodos segun la red, establecer el nodo actual, solo aumentar la capacidad o dejarla igual.
             sucursales_data = [
-                (1, '192.168.222.130', 1, 5),
-                (2, '192.168.222.128', 0, 5),
-                (3, '192.168.222.131', 0, 10),
-                (4, '192.168.222.132', 0, 10),
-                (5, '192.168.222.133', 0, 15)
+                ('192.168.222.130', 1, 5,  1),
+                ('192.168.222.128', 0, 5,  2),
+                ('192.168.222.131', 0, 10, 3),
+                ('192.168.222.132', 0, 10, 4),
+                ('192.168.222.133', 0, 15, 5)
             ]
 
             for sucursal_data in sucursales_data:
