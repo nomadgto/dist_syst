@@ -141,7 +141,7 @@ class Nodo:
         for sucursal_data in sucursales_data:
             self.cursor.execute("""
                 INSERT OR IGNORE INTO SUCURSAL (id_sucursal, ip, nodo_actual, nodo_maestro, status, capacidad, espacio_usado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, sucursal_data)
             self.connection.commit()
 
