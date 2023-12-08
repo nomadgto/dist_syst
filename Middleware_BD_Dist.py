@@ -44,13 +44,27 @@ class Nodo:
                 elif parts[0] == 'deactivate_cliente' and len(parts) == 2:
                     usuario = parts[1]
                     self.deactivate_cliente(cursor, usuario)
+                elif parts[0] == 'create_articulo' and len(parts) == 4:
+                    codigo, nombre, precio, id_sucursal = parts[1:]
+                    self.create_articulo(cursor, int(codigo), nombre, float(precio), int(id_sucursal))
+                elif parts[0] == 'update_articulo' and len(parts) == 4:
+                    codigo, nombre, precio = parts[1:]
+                    self.update_articulo(cursor, int(codigo), nombre, float(precio))
+                elif parts[0] == 'restock_articulo' and len(parts) == 2:
+                    codigo = parts[1]
+                    self.restock_articulo(cursor, int(codigo))
+                elif parts[0] == 'deactivate_articulo' and len(parts) == 2:
+                    codigo = parts[1]
+                    self.deactivate_articulo(cursor, int(codigo))
+                elif parts[0] == 'create_guia_envio' and len(parts) == 6:
+                    id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra = parts[1:]
+                    self.create_guia_envio(cursor, int(id_cliente), int(id_articulo), int(id_sucursal), int(serie), float(monto_total), fecha_compra)
                 cursor.close()
                 local_connection.close()
         except Exception as e:
-            print(f"Error al recibir datos del cliente: {e}")
+            print(f"Error al recibir datos del cliente: {e} \n")
         finally:
             client_socket.close()
-
 
     # Función para iniciar el servidor en un nodo
     def start_server(self, ip, port):
@@ -83,8 +97,7 @@ class Nodo:
             nodo_maestro INTEGER NOT NULL CHECK (nodo_maestro IN (0, 1)),
             status INTEGER NOT NULL CHECK (status IN (0, 1)),
             capacidad INTEGER NOT NULL,
-            espacio_usado INTEGER NOT NULL,
-            espacio_disponible INTEGER NOT NULL
+            espacio_usado INTEGER NOT NULL
         """)
 
         self.create_table("ARTICULO", """
@@ -118,19 +131,46 @@ class Nodo:
 
     def insert_initial_sucursales(self):
         sucursales_data = [
-            (1, '192.168.222.130', 1, 0, 1, 5, 0, 5),
-            (2, '192.168.222.128', 0, 0, 1, 5, 0, 5),
-            (3, '192.168.222.131', 0, 0, 1, 10, 0, 10),
-            (4, '192.168.222.132', 0, 0, 1, 10, 0, 10),
-            (5, '192.168.222.133', 0, 1, 1, 15, 0, 15)
+            (1, '192.168.222.130', 1, 0, 1, 2,  0),
+            (2, '192.168.222.128', 0, 0, 1, 3,  0),
+            (3, '192.168.222.131', 0, 0, 1, 5,  0),
+            (4, '192.168.222.132', 0, 0, 1, 7,  0),
+            (5, '192.168.222.133', 0, 1, 1, 11, 0)
         ]
 
         for sucursal_data in sucursales_data:
             self.cursor.execute("""
-                INSERT OR IGNORE INTO SUCURSAL (id_sucursal, ip, nodo_actual, nodo_maestro, status, capacidad, espacio_usado, espacio_disponible)
+                INSERT OR IGNORE INTO SUCURSAL (id_sucursal, ip, nodo_actual, nodo_maestro, status, capacidad, espacio_usado)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, sucursal_data)
             self.connection.commit()
+
+    def update_sucursales(self):
+        print("\n=== Modificación de Sucursales ===")
+        print("Desea modificar las sucursales? (y/n)")
+
+        choice = input().lower()
+        if choice == 'y':
+            # Modificar los valores iniciales si es necesario.
+            # Cambiar las ip´s de los nodos segun la red, establecer el nodo actual, solo aumentar la capacidad o dejarla igual.
+            sucursales_data = [
+                (1, '192.168.222.130', 1, 5),
+                (2, '192.168.222.128', 0, 5),
+                (3, '192.168.222.131', 0, 10),
+                (4, '192.168.222.132', 0, 10),
+                (5, '192.168.222.133', 0, 15)
+            ]
+
+            for sucursal_data in sucursales_data:
+                self.cursor.execute("""
+                    UPDATE SUCURSAL
+                    SET ip = ?, nodo_actual = ?, capacidad = ?
+                    WHERE id_sucursal = ?
+                """, sucursal_data)
+                self.connection.commit()
+            print("Sucursales actualizadas. \n")
+        else:
+            print("No se realizaron modificaciones en las sucursales. \n")
 
     def pretty_table_query(self, table_name):
         self.cursor.execute(f"SELECT * FROM {table_name}")
@@ -174,53 +214,53 @@ class Nodo:
         """, (usuario,))
         cursor.connection.commit()
 
-    def create_articulo(self, codigo, nombre, precio, id_sucursal):
+    def create_articulo(self, cursor, codigo, nombre, precio, id_sucursal):
         stock = "Disponible"
-        self.cursor.execute("""
+        cursor.execute("""
             INSERT INTO ARTICULO (id_sucursal, codigo, nombre, precio, stock)
             VALUES (?, ?, ?, ?, ?)
         """, (id_sucursal, codigo, nombre, precio, stock))
-        self.connection.commit()
+        cursor.connection.commit()
 
     def read_articulo(self):
         self.pretty_table_query("ARTICULO")
 
-    def update_articulo(self, codigo, nombre, precio):
-        self.cursor.execute("""
+    def update_articulo(self, cursor, codigo, nombre, precio):
+        cursor.execute("""
             UPDATE ARTICULO
             SET nombre = ?, precio = ?
             WHERE codigo = ?
         """, (nombre, precio, codigo))
-        self.connection.commit()
+        cursor.connection.commit()
 
-    def restock_articulo(self, codigo):
-        self.cursor.execute("""
+    def restock_articulo(self, cursor, codigo):
+        cursor.execute("""
             UPDATE ARTICULO
             SET stock = 'Disponible'
             WHERE codigo = ? AND stock = 'Agotado'
         """, (codigo,))
-        self.connection.commit()
+        cursor.connection.commit()
 
-    def deactivate_articulo(self, codigo):
-        self.cursor.execute("""
+    def deactivate_articulo(self, cursor, codigo):
+        cursor.execute("""
             UPDATE ARTICULO
             SET stock = 'Agotado'
             WHERE codigo = ? AND stock = 'Disponible'
         """, (codigo,))
-        self.connection.commit()
+        cursor.connection.commit()
 
-    def create_guia_envio(self, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra):
-        self.cursor.execute("""
+    def create_guia_envio(self, cursor, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra):
+        cursor.execute("""
             INSERT INTO GUIA_ENVIO (id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra))
 
-        self.cursor.execute("""
+        cursor.execute("""
             UPDATE ARTICULO
             SET stock = 'Agotado'
             WHERE id_articulo = ? AND stock = 'Disponible'
         """, (id_articulo,))
-        self.connection.commit()
+        cursor.connection.commit()
 
     def check_cliente_activo(self, usuario):
         self.cursor.execute("SELECT status FROM CLIENTE WHERE usuario = ?", (usuario,))
@@ -243,6 +283,10 @@ class Nodo:
     def read_guia_envio(self):
         self.pretty_table_query("GUIA_ENVIO")
 
+    def estado_sucursales(self):
+        print("\n=== Estado de Sucursales ===")
+        self.pretty_table_query("SUCURSAL")
+
     def get_cliente_id(self, usuario):
         self.cursor.execute("SELECT id_cliente FROM CLIENTE WHERE usuario = ?", (usuario,))
         return self.cursor.fetchone()[0]
@@ -263,13 +307,13 @@ class Nodo:
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 1")
         return self.cursor.fetchone()[0]
 
-    def update_sucursal_info(self, nodo_id, status, espacio_usado, espacio_disponible):
-        self.cursor.execute("""
+    def update_sucursal_info(self, cursor, nodo_id, status, espacio_usado):
+        cursor.execute("""
             UPDATE SUCURSAL
-            SET status = ?, espacio_usado = ?, espacio_disponible = ?
+            SET status = ?, espacio_usado = ?
             WHERE id_sucursal = ?
-        """, (status, espacio_usado, espacio_disponible, nodo_id))
-        self.connection.commit()
+        """, (status, espacio_usado, nodo_id))
+        cursor.connection.commit()
 
     # Método para verificar si el usuario existe
     def check_user_exists(self, usuario):
@@ -409,7 +453,11 @@ class Nodo:
                     nombre = input("Ingrese el nombre del artículo: ")
                     precio = float(input("Ingrese el precio del artículo: "))
                     id_sucursal = self.get_current_sucursal_id()
-                    self.create_articulo(codigo, nombre, precio, id_sucursal)
+                    
+                    message = f"create_articulo|{codigo}|{nombre}|{precio}|{id_sucursal}"
+                    self.send_messages_to_nodes(message)
+                    
+                    self.create_articulo(self.cursor, codigo, nombre, precio, id_sucursal)
             elif choice == '2':
                 self.read_articulo()
             elif choice == '3':
@@ -421,7 +469,11 @@ class Nodo:
                 if code_exists:
                     nombre = input("Ingrese el nuevo nombre: ")
                     precio = float(input("Ingrese el nuevo precio: "))
-                    self.update_articulo(codigo, nombre, precio)
+
+                    message = f"update_articulo|{codigo}|{nombre}|{precio}"
+                    self.send_messages_to_nodes(message)
+
+                    self.update_articulo(self.cursor, codigo, nombre, precio)
             elif choice == '4':
                 codigo = int(input("Ingrese el código del artículo a reabastecer: "))
     
@@ -429,7 +481,10 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
     
                 if code_exists:
-                    self.restock_articulo(codigo)
+                    message = f"restock_articulo|{codigo}"
+                    self.send_messages_to_nodes(message)
+
+                    self.restock_articulo(self.cursor, codigo)
             elif choice == '5':
                 codigo = int(input("Ingrese el código del artículo a desactivar: "))
     
@@ -437,7 +492,10 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
     
                 if code_exists:
-                    self.deactivate_articulo(codigo)
+                    message = f"deactivate_articulo|{codigo}"
+                    self.send_messages_to_nodes(message)
+                    
+                    self.deactivate_articulo(self.cursor, codigo)
             elif choice == '0':
                 break
             else:
@@ -460,34 +518,30 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
 
                 if user_exists and code_exists:
-                    # Verificar si el usuario está activo
+                    # Verificar si el usuario está activo y si hay stock
                     usuario_activo = self.check_cliente_activo(usuario)
+                    stock_disponible = self.check_articulo_disponible(codigo)
 
-                    if usuario_activo:
-                        # Verificar si hay stock
-                        stock_disponible = self.check_articulo_disponible(codigo)
+                    if usuario_activo and stock_disponible:
+                        # Obtener los datos necesarios
+                        id_cliente = self.get_cliente_id(usuario)
+                        id_articulo = self.get_articulo_id(codigo)
+                        id_sucursal = self.get_current_sucursal_id()
+                        serie = int(time.strftime("%Y")) + int(time.strftime("%m")) + int(time.strftime("%d")) + int(time.strftime("%H")) + int(time.strftime("%M")) + int(time.strftime("%S")) + id_sucursal + int(random.randint(1, 100))
+                        monto_total = self.get_articulo_price(codigo)
+                        fecha_compra = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-                        if stock_disponible:
-                            # Obtener los datos necesarios
-                            id_cliente = self.get_cliente_id(usuario)
-                            id_articulo = self.get_articulo_id(codigo)
-                            id_sucursal = self.get_current_sucursal_id()
-                            serie = int(time.strftime("%Y")) + int(time.strftime("%m")) + int(time.strftime("%d")) + int(time.strftime("%H")) + int(time.strftime("%M")) + int(time.strftime("%S")) + id_sucursal + int(random.randint(1, 100))
-                            monto_total = self.get_articulo_price(codigo)
-                            fecha_compra = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                        message = f"create_guia_envio|{id_cliente}|{id_articulo}|{id_sucursal}|{serie}|{monto_total}|{fecha_compra}"
+                        self.send_messages_to_nodes(message)
 
-                            # Llamar a la función
-                            self.create_guia_envio(id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
+                        # Llamar a la función
+                        self.create_guia_envio(self.cursor, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
             elif choice == '2':
                 self.read_guia_envio()
             elif choice == '0':
                 break
             else:
                 print("Opción no válida. Intente de nuevo.")
-
-    def estado_sucursales(self):
-        print("\n=== Estado de Sucursales ===")
-        self.pretty_table_query("SUCURSAL")
 
 
 if __name__ == "__main__":
@@ -505,4 +559,6 @@ if __name__ == "__main__":
     server_thread = threading.Thread(target=nodo.start_server, args=(nodo.get_current_sucursal_ip(), 2222))
     server_thread.start()
 
+    nodo.update_sucursales()
+    
     nodo.main_menu()
