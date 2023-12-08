@@ -145,33 +145,6 @@ class Nodo:
             """, sucursal_data)
             self.connection.commit()
 
-    def update_sucursales(self):
-        print("\n=== Modificación de Sucursales ===")
-        print("Desea modificar las sucursales? (y/n)")
-
-        choice = input().lower()
-        if choice == 'y':
-            # Modificar los valores iniciales si es necesario.
-            # Cambiar las ip´s de los nodos segun la red, establecer el nodo actual, solo aumentar la capacidad o dejarla igual.
-            sucursales_data = [
-                ('192.168.222.130', 1, 5,  1),
-                ('192.168.222.128', 0, 5,  2),
-                ('192.168.222.131', 0, 10, 3),
-                ('192.168.222.132', 0, 10, 4),
-                ('192.168.222.133', 0, 15, 5)
-            ]
-
-            for sucursal_data in sucursales_data:
-                self.cursor.execute("""
-                    UPDATE SUCURSAL
-                    SET ip = ?, nodo_actual = ?, capacidad = ?
-                    WHERE id_sucursal = ?
-                """, sucursal_data)
-                self.connection.commit()
-            print("Sucursales actualizadas. \n")
-        else:
-            print("No se realizaron modificaciones en las sucursales. \n")
-
     def pretty_table_query(self, table_name):
         self.cursor.execute(f"SELECT * FROM {table_name}")
         rows = self.cursor.fetchall()
@@ -558,7 +531,5 @@ if __name__ == "__main__":
     # Iniciar el servidor en el nodo
     server_thread = threading.Thread(target=nodo.start_server, args=(nodo.get_current_sucursal_ip(), 2222))
     server_thread.start()
-
-    nodo.update_sucursales()
     
     nodo.main_menu()
