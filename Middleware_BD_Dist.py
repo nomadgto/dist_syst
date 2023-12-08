@@ -46,7 +46,9 @@ class Nodo:
                     self.deactivate_cliente(cursor, usuario)
                 elif parts[0] == 'create_articulo' and len(parts) == 4:
                     codigo, nombre, precio, id_sucursal = parts[1:]
+                    print("\nAntes de create")
                     self.create_articulo(cursor, int(codigo), nombre, float(precio), int(id_sucursal))
+                    print("\nDespues de create")
                 elif parts[0] == 'update_articulo' and len(parts) == 4:
                     codigo, nombre, precio = parts[1:]
                     self.update_articulo(cursor, int(codigo), nombre, float(precio))
