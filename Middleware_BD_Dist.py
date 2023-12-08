@@ -28,6 +28,7 @@ class Nodo:
     def handle_client(self, client_socket):
         try:
             data = client_socket.recv(1024).decode()
+            print(f"Mensaje recibido en el nodo: {data}")
             if data:
                 local_connection = sqlite3.connect(self.db_path)
                 cursor = local_connection.cursor()
@@ -306,6 +307,7 @@ class Nodo:
         client_socket.connect((ip, 2222))
         client_socket.send(f"{message}".encode())
         client_socket.close()
+        print(f"Mensaje enviado a {ip}: {message}")
 
     # Función para enviar mensajes a todos los nodos actuales
     def send_messages_to_nodes(self, message):
@@ -313,6 +315,7 @@ class Nodo:
         nodes_ips = self.cursor.fetchall()
         for ip in nodes_ips:
             self.send_message_to_node(ip[0], message)
+        print(f"Enviando mensaje a nodos en IPs: {nodes_ips}")
 
     def main_menu(self):
         while True:
