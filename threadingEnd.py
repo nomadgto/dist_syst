@@ -18,12 +18,10 @@ class Nodo:
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
-        self.is_running = False
         sys.exit(1)
 
     # Función que se ejecutará cuando se reciba la señal Ctrl+Z
     def signal_stop_handler(self, sig, frame):
-        self.is_running = False
         sys.exit(1)
 
     # Función para manejar la comunicación con un nodo remoto
@@ -371,7 +369,7 @@ class Nodo:
                 break
             else:
                 print("\n>> Opción no válida. Intente de nuevo.")
-        sys.exit(1)
+        print("\n>> Ctrl+Z para finalizar el programa.")
 
     def cliente_menu(self):
         while True:
