@@ -560,10 +560,7 @@ class Nodo:
                         id_cliente = self.get_cliente_id(usuario)
                         id_articulo = self.get_articulo_id(codigo)
                         id_sucursal = self.get_current_sucursal_id()
-                        serie = int(time.strftime("%Y")) + int(time.strftime("%m")) 
-                        + int(time.strftime("%d")) + int(time.strftime("%H")) 
-                        + int(time.strftime("%M")) + int(time.strftime("%S")) 
-                        + id_sucursal + int(random.randint(1, 100))
+                        serie = int(time.strftime("%Y")) + int(time.strftime("%m")) + int(time.strftime("%d")) + int(time.strftime("%H")) + int(time.strftime("%M")) + int(time.strftime("%S")) + id_sucursal + int(random.randint(1, 100))
                         monto_total = self.get_articulo_price(codigo)
                         fecha_compra = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
