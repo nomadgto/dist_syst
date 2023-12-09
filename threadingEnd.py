@@ -604,3 +604,5 @@ if __name__ == "__main__":
     server_thread.start()
     
     nodo.main_menu()
+
+    server_thread.join()
