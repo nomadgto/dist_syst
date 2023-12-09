@@ -18,13 +18,15 @@ class Nodo:
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
-        print("\n")
-        sys.exit(1)
+        self.is_running = False
+        time.sleep(1)
+        sys.exit(0)
 
     # Función que se ejecutará cuando se reciba la señal Ctrl+Z
     def signal_stop_handler(self, sig, frame):
-        print("\n")
-        sys.exit(1)
+        self.is_running = False
+        time.sleep(1)
+        sys.exit(0)
 
     # Función para manejar la comunicación con un nodo remoto
     def handle_client(self, client_socket):
@@ -329,15 +331,20 @@ class Nodo:
             self.send_message_to_node(ip[0], message)
 
     def acquire_permission(self):
-        master_ip = self.get_master_node_ip()
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((master_ip, 2222))
-        client_socket.send("acquire_permission".encode())
+        try:
+            client_socket.settimeout(5)  # Establecer un tiempo de espera de 5 segundos
+            master_ip = self.get_master_node_ip()
+            client_socket.connect((master_ip, 2222))
+            client_socket.send("acquire_permission".encode())
 
-        data = client_socket.recv(1024).decode()
-        if data == "authorized_permission":
-            print(f"\n {data} \n")
-        client_socket.close()
+            data = client_socket.recv(1024).decode()
+            if data == "authorized_permission":
+                print(">> Permiso autorizado.")
+        except socket.timeout:
+            print("Error: Tiempo de espera agotado. Nodo maestro fuera de linea.")
+        finally:
+            client_socket.close()
 
     def release_permission(self):
         master_ip = self.get_master_node_ip()
@@ -352,7 +359,7 @@ class Nodo:
             print("4. Estado de Sucursales")
             print("0. Salir")
 
-            choice = input("Ingrese su opción: ")
+            choice = input(">> Ingrese su opción: ")
             if choice == '1':
                 self.cliente_menu()
             elif choice == '2':
@@ -363,9 +370,11 @@ class Nodo:
                 self.estado_sucursales()
             elif choice == '0':
                 self.is_running = False
+                time.sleep(1)
                 break
             else:
                 print("Opción no válida. Intente de nuevo.")
+        sys.exit(0)
 
     def cliente_menu(self):
         while True:
@@ -377,17 +386,17 @@ class Nodo:
             print("5. Desactivar Cliente")
             print("0. Volver al Menú Principal")
 
-            choice = input("Ingrese su opción: ")
+            choice = input(">> Ingrese su opción: ")
             if choice == '1':
-                usuario = input("Ingrese el usuario: ")
+                usuario = input(">> Ingrese el usuario: ")
     
                 # Verificar si el usuario ya existe y tiene el formato correcto
                 user_exists = self.check_user_exists(usuario)
     
                 if not user_exists:
-                    nombre = input("Ingrese el nombre: ")
-                    direccion = input("Ingrese la dirección: ")
-                    tarjeta = int(input("Ingrese el número de tarjeta: "))
+                    nombre = input(">> Ingrese el nombre: ")
+                    direccion = input(">> Ingrese la dirección: ")
+                    tarjeta = int(input(">> Ingrese el número de tarjeta: "))
 
                     self.acquire_permission()
 
@@ -400,15 +409,15 @@ class Nodo:
             elif choice == '2':
                 self.read_cliente()
             elif choice == '3':
-                usuario = input("Ingrese el usuario del cliente a actualizar: ")
+                usuario = input(">> Ingrese el usuario del cliente a actualizar: ")
     
                 # Verificar si el usuario existe y tiene el formato correcto
                 user_exists = self.check_user_exists(usuario)
     
                 if user_exists:
-                    nombre = input("Ingrese el nuevo nombre: ")
-                    direccion = input("Ingrese la nueva dirección: ")
-                    tarjeta = int(input("Ingrese la nueva tarjeta: "))
+                    nombre = input(">> Ingrese el nuevo nombre: ")
+                    direccion = input(">> Ingrese la nueva dirección: ")
+                    tarjeta = int(input(">> Ingrese la nueva tarjeta: "))
 
                     self.acquire_permission()
 
@@ -419,7 +428,7 @@ class Nodo:
 
                     self.release_permission()
             elif choice == '4':
-                usuario = input("Ingrese el usuario del cliente a activar: ")
+                usuario = input(">> Ingrese el usuario del cliente a activar: ")
     
                 # Verificar si el usuario existe y tiene el formato correcto
                 user_exists = self.check_user_exists(usuario)
@@ -434,7 +443,7 @@ class Nodo:
 
                     self.release_permission()
             elif choice == '5':
-                usuario = input("Ingrese el usuario del cliente a desactivar: ")
+                usuario = input(">> Ingrese el usuario del cliente a desactivar: ")
     
                 # Verificar si el usuario existe y tiene el formato correcto
                 user_exists = self.check_user_exists(usuario)
@@ -463,16 +472,16 @@ class Nodo:
             print("5. Desactivar Artículo")
             print("0. Volver al Menú Principal")
 
-            choice = input("Ingrese su opción: ")
+            choice = input(">> Ingrese su opción: ")
             if choice == '1':
-                codigo = int(input("Ingrese el código del artículo: "))
+                codigo = int(input(">> Ingrese el código del artículo: "))
     
                 # Verificar si el código ya existe y tiene el formato correcto
                 code_exists = self.check_code_exists(codigo)
     
                 if not code_exists:
-                    nombre = input("Ingrese el nombre del artículo: ")
-                    precio = float(input("Ingrese el precio del artículo: "))
+                    nombre = input(">> Ingrese el nombre del artículo: ")
+                    precio = float(input(">> Ingrese el precio del artículo: "))
                     id_sucursal = self.get_current_sucursal_id()
 
                     self.acquire_permission()
@@ -486,14 +495,14 @@ class Nodo:
             elif choice == '2':
                 self.read_articulo()
             elif choice == '3':
-                codigo = int(input("Ingrese el código del artículo a actualizar: "))
+                codigo = int(input(">> Ingrese el código del artículo a actualizar: "))
     
                 # Verificar si el código existe y tiene el formato correcto
                 code_exists = self.check_code_exists(codigo)
     
                 if code_exists:
-                    nombre = input("Ingrese el nuevo nombre: ")
-                    precio = float(input("Ingrese el nuevo precio: "))
+                    nombre = input(">> Ingrese el nuevo nombre: ")
+                    precio = float(input(">> Ingrese el nuevo precio: "))
 
                     self.acquire_permission()
 
@@ -504,7 +513,7 @@ class Nodo:
 
                     self.release_permission()
             elif choice == '4':
-                codigo = int(input("Ingrese el código del artículo a reabastecer: "))
+                codigo = int(input(">> Ingrese el código del artículo a reabastecer: "))
     
                 # Verificar si el código existe y tiene el formato correcto
                 code_exists = self.check_code_exists(codigo)
@@ -519,7 +528,7 @@ class Nodo:
 
                     self.release_permission()
             elif choice == '5':
-                codigo = int(input("Ingrese el código del artículo a desactivar: "))
+                codigo = int(input(">> Ingrese el código del artículo a desactivar: "))
     
                 # Verificar si el código existe y tiene el formato correcto
                 code_exists = self.check_code_exists(codigo)
@@ -545,10 +554,10 @@ class Nodo:
             print("2. Leer Guías de Envío")
             print("0. Volver al Menú Principal")
 
-            choice = input("Ingrese su opción: ")
+            choice = input(">> Ingrese su opción: ")
             if choice == '1':
-                usuario = input("Ingrese el usuario del cliente: ")
-                codigo = int(input("Ingrese el código del artículo: "))
+                usuario = input(">> Ingrese el usuario del cliente: ")
+                codigo = int(input(">> Ingrese el código del artículo: "))
 
                 # Verificar si el usuario y código existen y tienen los formatos correctos
                 user_exists = self.check_user_exists(usuario)
@@ -600,5 +609,3 @@ if __name__ == "__main__":
     server_thread.start()
     
     nodo.main_menu()
-
-    server_thread.join()
