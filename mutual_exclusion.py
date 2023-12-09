@@ -14,7 +14,6 @@ class Nodo:
         self.connection = sqlite3.connect(db_path)
         self.cursor = self.connection.cursor()
         self.semaphore = threading.Semaphore()
-        self.mutual_exclusion = 0
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
@@ -334,12 +333,10 @@ class Nodo:
 
         data = client_socket.recv(1024).decode()
         if data == "authorized_permission":
-            self.mutual_exclusion = 1
-            print("\nauthorized_permission\n")
+            print(f"\n {data} \n")
         client_socket.close()
 
     def release_permission(self):
-        self.mutual_exclusion = 0
         master_ip = self.get_master_node_ip()
         self.send_message_to_node(master_ip, "release_permission")
 
@@ -378,7 +375,6 @@ class Nodo:
 
             choice = input("Ingrese su opción: ")
             if choice == '1':
-                self.acquire_permission()
                 usuario = input("Ingrese el usuario: ")
     
                 # Verificar si el usuario ya existe y tiene el formato correcto
@@ -389,12 +385,14 @@ class Nodo:
                     direccion = input("Ingrese la dirección: ")
                     tarjeta = int(input("Ingrese el número de tarjeta: "))
 
+                    self.acquire_permission()
+
                     message = f"create_cliente|{usuario}|{nombre}|{direccion}|{tarjeta}"
                     self.send_messages_to_nodes(message)
 
                     self.create_cliente(self.cursor, usuario, nombre, direccion, tarjeta)
 
-                self.release_permission()
+                    self.release_permission()
             elif choice == '2':
                 self.read_cliente()
             elif choice == '3':
@@ -408,10 +406,14 @@ class Nodo:
                     direccion = input("Ingrese la nueva dirección: ")
                     tarjeta = int(input("Ingrese la nueva tarjeta: "))
 
+                    self.acquire_permission()
+
                     message = f"update_cliente|{usuario}|{nombre}|{direccion}|{tarjeta}"
                     self.send_messages_to_nodes(message)
                     
                     self.update_cliente(self.cursor, usuario, nombre, direccion, tarjeta)
+
+                    self.release_permission()
             elif choice == '4':
                 usuario = input("Ingrese el usuario del cliente a activar: ")
     
@@ -419,10 +421,14 @@ class Nodo:
                 user_exists = self.check_user_exists(usuario)
     
                 if user_exists:
+                    self.acquire_permission()
+
                     message = f"activate_cliente|{usuario}"
                     self.send_messages_to_nodes(message)
 
                     self.activate_cliente(self.cursor, usuario)
+
+                    self.release_permission()
             elif choice == '5':
                 usuario = input("Ingrese el usuario del cliente a desactivar: ")
     
@@ -430,10 +436,14 @@ class Nodo:
                 user_exists = self.check_user_exists(usuario)
     
                 if user_exists:
+                    self.acquire_permission()
+
                     message = f"deactivate_cliente|{usuario}"
                     self.send_messages_to_nodes(message)
                     
                     self.deactivate_cliente(self.cursor, usuario)
+
+                    self.release_permission()
             elif choice == '0':
                 break
             else:
@@ -460,11 +470,15 @@ class Nodo:
                     nombre = input("Ingrese el nombre del artículo: ")
                     precio = float(input("Ingrese el precio del artículo: "))
                     id_sucursal = self.get_current_sucursal_id()
+
+                    self.acquire_permission()
                     
                     message = f"create_articulo|{codigo}|{nombre}|{precio}|{id_sucursal}"
                     self.send_messages_to_nodes(message)
                     
                     self.create_articulo(self.cursor, codigo, nombre, precio, id_sucursal)
+
+                    self.release_permission()
             elif choice == '2':
                 self.read_articulo()
             elif choice == '3':
@@ -477,10 +491,14 @@ class Nodo:
                     nombre = input("Ingrese el nuevo nombre: ")
                     precio = float(input("Ingrese el nuevo precio: "))
 
+                    self.acquire_permission()
+
                     message = f"update_articulo|{codigo}|{nombre}|{precio}"
                     self.send_messages_to_nodes(message)
 
                     self.update_articulo(self.cursor, codigo, nombre, precio)
+
+                    self.release_permission()
             elif choice == '4':
                 codigo = int(input("Ingrese el código del artículo a reabastecer: "))
     
@@ -488,10 +506,14 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
     
                 if code_exists:
+                    self.acquire_permission()
+
                     message = f"restock_articulo|{codigo}"
                     self.send_messages_to_nodes(message)
 
                     self.restock_articulo(self.cursor, codigo)
+
+                    self.release_permission()
             elif choice == '5':
                 codigo = int(input("Ingrese el código del artículo a desactivar: "))
     
@@ -499,10 +521,14 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
     
                 if code_exists:
+                    self.acquire_permission()
+
                     message = f"deactivate_articulo|{codigo}"
                     self.send_messages_to_nodes(message)
                     
                     self.deactivate_articulo(self.cursor, codigo)
+
+                    self.release_permission()
             elif choice == '0':
                 break
             else:
@@ -534,15 +560,21 @@ class Nodo:
                         id_cliente = self.get_cliente_id(usuario)
                         id_articulo = self.get_articulo_id(codigo)
                         id_sucursal = self.get_current_sucursal_id()
-                        serie = int(time.strftime("%Y")) + int(time.strftime("%m")) + int(time.strftime("%d")) + int(time.strftime("%H")) + int(time.strftime("%M")) + int(time.strftime("%S")) + id_sucursal + int(random.randint(1, 100))
+                        serie = int(time.strftime("%Y")) + int(time.strftime("%m")) 
+                        + int(time.strftime("%d")) + int(time.strftime("%H")) 
+                        + int(time.strftime("%M")) + int(time.strftime("%S")) 
+                        + id_sucursal + int(random.randint(1, 100))
                         monto_total = self.get_articulo_price(codigo)
                         fecha_compra = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+                        self.acquire_permission()
 
                         message = f"create_guia_envio|{id_cliente}|{id_articulo}|{id_sucursal}|{serie}|{monto_total}|{fecha_compra}"
                         self.send_messages_to_nodes(message)
 
-                        # Llamar a la función
                         self.create_guia_envio(self.cursor, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
+
+                        self.release_permission()
             elif choice == '2':
                 self.read_guia_envio()
             elif choice == '0':
