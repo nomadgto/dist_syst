@@ -19,14 +19,12 @@ class Nodo:
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
         self.is_running = False
-        time.sleep(1)
-        sys.exit(0)
+        sys.exit(1)
 
     # Función que se ejecutará cuando se reciba la señal Ctrl+Z
     def signal_stop_handler(self, sig, frame):
         self.is_running = False
-        time.sleep(1)
-        sys.exit(0)
+        sys.exit(1)
 
     # Función para manejar la comunicación con un nodo remoto
     def handle_client(self, client_socket):
@@ -74,7 +72,7 @@ class Nodo:
                     cursor.close()
                     local_connection.close()
         except Exception as e:
-            print(f"Error al recibir datos del cliente: {e} \n")
+            print(f"\n>> Error al recibir datos del cliente: {e} \n")
         finally:
             client_socket.close()
 
@@ -340,9 +338,9 @@ class Nodo:
 
             data = client_socket.recv(1024).decode()
             if data == "authorized_permission":
-                print(">> Permiso autorizado.")
+                print("\n>> Permiso autorizado.")
         except socket.timeout:
-            print("Error: Tiempo de espera agotado. Nodo maestro fuera de linea.")
+            print("\n>> Error: Tiempo de espera agotado. Nodo maestro fuera de linea.")
         finally:
             client_socket.close()
 
@@ -370,11 +368,10 @@ class Nodo:
                 self.estado_sucursales()
             elif choice == '0':
                 self.is_running = False
-                time.sleep(1)
                 break
             else:
-                print("Opción no válida. Intente de nuevo.")
-        sys.exit(0)
+                print("\n>> Opción no válida. Intente de nuevo.")
+        sys.exit(1)
 
     def cliente_menu(self):
         while True:
@@ -460,7 +457,7 @@ class Nodo:
             elif choice == '0':
                 break
             else:
-                print("Opción no válida. Intente de nuevo.")
+                print("\n>> Opción no válida. Intente de nuevo.")
 
     def articulo_menu(self):
         while True:
@@ -545,7 +542,7 @@ class Nodo:
             elif choice == '0':
                 break
             else:
-                print("Opción no válida. Intente de nuevo.")
+                print("\n>> Opción no válida. Intente de nuevo.")
 
     def guia_envio_menu(self):
         while True:
@@ -590,7 +587,7 @@ class Nodo:
             elif choice == '0':
                 break
             else:
-                print("Opción no válida. Intente de nuevo.")
+                print("\n>> Opción no válida. Intente de nuevo.")
 
 
 if __name__ == "__main__":
