@@ -18,10 +18,12 @@ class Nodo:
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
+        print("\n")
         sys.exit(1)
 
     # Función que se ejecutará cuando se reciba la señal Ctrl+Z
     def signal_stop_handler(self, sig, frame):
+        print("\n")
         sys.exit(1)
 
     # Función para manejar la comunicación con un nodo remoto
