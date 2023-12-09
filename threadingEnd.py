@@ -371,7 +371,7 @@ class Nodo:
                 break
             else:
                 print("\n>> Opción no válida. Intente de nuevo.")
-        print("\n>> Ctrl+Z para finalizar el programa.")
+        print("\n>> Ctrl+Z o Ctrl+C para finalizar el programa.")
 
     def cliente_menu(self):
         while True:
