@@ -68,6 +68,9 @@ class Nodo:
                     elif parts[0] == 'create_guia_envio' and len(parts) == 7:
                         id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra = parts[1:]
                         self.create_guia_envio(cursor, int(id_cliente), int(id_articulo), int(id_sucursal), int(serie), float(monto_total), fecha_compra)
+                    elif parts[0] == 'new_master_node' and len(parts) == 3:
+                        old_master, new_master = parts[1:]
+                        self.update_master_node_status(cursor, int(old_master), int(new_master))
                     
                     cursor.close()
                     local_connection.close()
@@ -247,6 +250,22 @@ class Nodo:
         """, (id_articulo,))
         cursor.connection.commit()
 
+    def update_master_node_status(self, cursor, old_master, new_master):
+        # Actualizar el nodo maestro antiguo
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET nodo_maestro = 0, status = 0
+            WHERE id_sucursal = ?
+        """, (old_master,))
+
+        # Actualizar el nuevo nodo maestro
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET nodo_maestro = 1
+            WHERE id_sucursal = ?
+        """, (new_master,))
+        cursor.connection.commit()
+
     def check_cliente_activo(self, usuario):
         self.cursor.execute("SELECT status FROM CLIENTE WHERE usuario = ?", (usuario,))
         status = self.cursor.fetchone()
@@ -292,6 +311,10 @@ class Nodo:
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 1 AND status = 1")
         return self.cursor.fetchone()[0]
     
+    def get_master_node_id(self):
+        self.cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_maestro = 1 AND status = 1")
+        return self.cursor.fetchone()[0]
+    
     def get_master_node_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_maestro = 1 AND status = 1")
         return self.cursor.fetchone()[0]
@@ -328,6 +351,20 @@ class Nodo:
         for ip in nodes_ips:
             self.send_message_to_node(ip[0], message)
 
+    # Función para enviar mensaje a los nodos sobre el cambio de maestro
+    def new_master_node(self, old_master, new_master):
+        message = f"new_master_node|{old_master}|{new_master}"
+        nodes_ips = self.get_active_nodes_ip()
+
+        for ip in nodes_ips:
+            self.send_message_to_node(ip, message)
+    
+        self.update_master_node_status(self.cursor, old_master, new_master)
+
+    def get_active_nodes_ip(self):
+        self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 0 AND nodo_maestro = 0 AND status = 1")
+        return [ip[0] for ip in self.cursor.fetchall()]
+
     def acquire_permission(self):
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -341,11 +378,15 @@ class Nodo:
             client_socket.close()
         except ConnectionRefusedError:
             client_socket.close()
-            print(f"\n>> Error: Se cayo el nodo maestro {master_ip}")
+            print("\n>> Elección: Seleccionado nuevo nodo maestro.")
+            self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
+            self.acquire_permission()
         except OSError as e:
             if "[Errno 113] No route to host" in str(e):
                 client_socket.close()
-                print("\n>> Error: No hay ruta al host.")
+                print("\n>> Elección: Seleccionado nuevo nodo maestro.")
+                self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
+                self.acquire_permission()
 
     def release_permission(self):
         master_ip = self.get_master_node_ip()
