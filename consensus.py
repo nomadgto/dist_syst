@@ -89,7 +89,7 @@ class Nodo:
 
                     id_start_node = int(parts_id_start_node[1])
 
-                    print("\n\n>> Start Node ID: ",id_start_node," - Message: ",start_second_part)
+                    print("\n\n>>    Start Node ID: ",id_start_node," - Message: ",start_second_part)
 
                     if id_start_node == 1:
                         self.first_branch_consensus = start_second_part
@@ -110,6 +110,8 @@ class Nodo:
 
                     while self.consensus_node_count < self.active_nodes_count:
                         pass
+
+                    print("\n")
 
                     cadenas = [
                         self.first_branch_consensus,
@@ -169,7 +171,7 @@ class Nodo:
                 cursor.close()
                 local_connection.close()
         except Exception as e:
-            print(f"\n>> Error: {e} \n")
+            print(f"\n>> Error def handle_client: {e} \n")
         finally:
             client_socket.close()
 
@@ -488,7 +490,7 @@ class Nodo:
     
         self.update_master_node_status(self.cursor, old_master, new_master)
 
-        time.sleep(5)
+        time.sleep(3)
 
     def get_active_nodes_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 0 AND nodo_maestro = 0 AND status = 1")
