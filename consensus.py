@@ -19,7 +19,7 @@ class Nodo:
         self.semaphore_consensus = threading.Semaphore()
         self.semaphore_consensus_completion = threading.Semaphore()
 
-        self.active_nodes_count = 4
+        self.active_nodes_count = 0
         self.consensus_node_count = 0
         self.consensus_completion_count = 0
 
@@ -59,23 +59,13 @@ class Nodo:
                     with self.semaphore_consensus_completion:
                         self.consensus_completion_count +=1
                 elif data.startswith("continue_consensus"):
-                    # Dividir la cadena en dos partes usando el separador "|"
                     continue_consensus_parts = data.split("|", 1)
-
-                    # La primera parte es "continue_consensus-{id_actual_node}"
                     continue_first_part = continue_consensus_parts[0]
-
-                    # La segunda parte es "create_cliente|{usuario}|{nombre}|{direccion}|{tarjeta}"
                     continue_second_part = continue_consensus_parts[1]
-                    
-                    # Dividir la primera parte en dos partes usando el separador "-"
                     parts_id_continue_node = continue_first_part.split("-", 1)
-
-                    # La segunda parte es "{id_actual_node}"
                     id_continue_node = int(parts_id_continue_node[1])
 
-                    print("\n>> ID continue node:", id_continue_node)
-                    print("\n>> Message continue node:", continue_second_part)
+                    print(">> Continue Node ID: ",id_continue_node," - Message: ",continue_second_part)
 
                     if id_continue_node == 1:
                         self.first_branch_consensus = continue_second_part
@@ -90,24 +80,16 @@ class Nodo:
 
                     with self.semaphore_consensus:
                         self.consensus_node_count +=1
+                
                 elif data.startswith("start_consensus"):
-                    # Dividir la cadena en dos partes usando el separador "|"
                     start_consensus_parts = data.split("|", 1)
-
-                    # La primera parte es "start_consensus-{id_actual_node}"
                     start_first_part = start_consensus_parts[0]
-
-                    # La segunda parte es "create_cliente|{usuario}|{nombre}|{direccion}|{tarjeta}"
                     start_second_part = start_consensus_parts[1]
-                    
-                    # Dividir la primera parte en dos partes usando el separador "-"
                     parts_id_start_node = start_first_part.split("-", 1)
 
-                    # La segunda parte es "{id_actual_node}"
                     id_start_node = int(parts_id_start_node[1])
 
-                    print("\n>> ID start node:", id_start_node)
-                    print("\n>> Message start node:", start_second_part)
+                    print("\n\n>> Start Node ID: ",id_start_node," - Message: ",start_second_part)
 
                     if id_start_node == 1:
                         self.first_branch_consensus = start_second_part
@@ -124,10 +106,11 @@ class Nodo:
 
                     self.send_messages_to_nodes_continue_consensus(cursor, id_start_node, start_second_part)
 
+                    self.active_nodes_count = int(self.get_active_nodes_count(cursor)) - 1
+
                     while self.consensus_node_count < self.active_nodes_count:
                         pass
 
-                    # Definir las cadenas
                     cadenas = [
                         self.first_branch_consensus,
                         self.second_branch_consensus,
@@ -136,12 +119,8 @@ class Nodo:
                         self.fifth_branch_consensus
                     ]
 
-                    # Filtrar las cadenas diferentes de None
                     cadenas_no_none = [cadena for cadena in cadenas if cadena is not None]
-
-                    # Encontrar la cadena que más se repite
                     cadena_mas_repetida = Counter(cadenas_no_none).most_common(1)[0][0]
-
                     parts = cadena_mas_repetida.split('|')
 
                     if parts[0] == 'create_cliente' and len(parts) == 5:
@@ -441,6 +420,11 @@ class Nodo:
     def get_master_node_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_maestro = 1 AND status = 1")
         return self.cursor.fetchone()[0]
+        
+    def get_active_nodes_count(self, cursor):
+        cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_actual = 0 AND status = 1")
+        results = cursor.fetchall()
+        return len(results)
 
     def update_sucursal_info(self, cursor, nodo_id, status, espacio_usado):
         cursor.execute("""
@@ -475,6 +459,8 @@ class Nodo:
         nodes_ips = self.cursor.fetchall()
         for ip in nodes_ips:
             self.send_message_to_node(ip[0], start_consensus)
+
+        self.active_nodes_count = int(self.get_active_nodes_count(self.cursor)) - 1
 
         while self.consensus_completion_count < self.active_nodes_count:
             pass
@@ -534,6 +520,7 @@ class Nodo:
     def release_permission(self):
         master_ip = self.get_master_node_ip()
         self.send_message_to_node(master_ip, "release_permission")
+        print("\n>> Exclusión mutua: Permiso finalizado.")
 
     def main_menu(self):
         while True:
