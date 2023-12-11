@@ -48,6 +48,7 @@ class Nodo:
             if data:
                 local_connection = sqlite3.connect(self.db_path)
                 cursor = local_connection.cursor()
+                parts_aux = data.split('|')
 
                 if data == 'acquire_permission':
                     self.semaphore_mutual_exclusion.acquire()
@@ -170,9 +171,6 @@ class Nodo:
                     elif parts[0] == 'create_guia_envio' and len(parts) == 7:
                         id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra = parts[1:]
                         self.create_guia_envio(cursor, int(id_cliente), int(id_articulo), int(id_sucursal), int(serie), float(monto_total), fecha_compra)
-                    elif parts[0] == 'new_master_node' and len(parts) == 3:
-                        old_master, new_master = parts[1:]
-                        self.update_master_node_status(cursor, int(old_master), int(new_master))
 
                     self.consensus_node_count = 0
 
@@ -185,6 +183,10 @@ class Nodo:
                     ip_start_node = self.get_start_consensus_sucursal_ip(cursor, id_start_node)
                     self.send_message_to_node(ip_start_node, "consensus_over")
                     
+                elif parts_aux[0] == 'new_master_node' and len(parts_aux) == 3:
+                    old_master, new_master = parts_aux[1:]
+                    self.update_master_node_status(cursor, int(old_master), int(new_master))
+
                 cursor.close()
                 local_connection.close()
         except Exception as e:
@@ -499,6 +501,8 @@ class Nodo:
             self.send_message_to_node(ip, message)
     
         self.update_master_node_status(self.cursor, old_master, new_master)
+
+        time.sleep(5)
 
     def get_active_nodes_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 0 AND nodo_maestro = 0 AND status = 1")
