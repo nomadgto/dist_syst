@@ -183,12 +183,12 @@ class Nodo:
                     self.fifth_branch_consensus = None
 
                     ip_start_node = self.get_start_consensus_sucursal_ip(cursor, id_start_node)
-                    self.send_message_to_node(self, ip_start_node, "consensus_over")
+                    self.send_message_to_node(ip_start_node, "consensus_over")
                     
                 cursor.close()
                 local_connection.close()
         except Exception as e:
-            print(f"\n>> Error al recibir datos del cliente: {e} \n")
+            print(f"\n>> Error: {e} \n")
         finally:
             client_socket.close()
 
