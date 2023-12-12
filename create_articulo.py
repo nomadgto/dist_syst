@@ -631,20 +631,26 @@ class Nodo:
         return data
         
     def automatic_distribution_new_article(self, cursor):
-        # Consulta para obtener el id_sucursal con el mayor espacio disponible
-        query = """
-            SELECT id_sucursal
+        # Seleccionar registros con status igual a 1
+        cursor.execute("""
+            SELECT id_sucursal, capacidad, espacio_usado
             FROM SUCURSAL
-            ORDER BY (capacidad - espacio_usado) DESC
-            LIMIT 1
-        """
-        cursor.execute(query)
-        result = cursor.fetchone()
-        if result:
-            id_branch_new_article = result[0]
-            return id_branch_new_article
-        else:
+            WHERE status = 1
+        """)
+        sucursales_data = cursor.fetchall()
+
+        if not sucursales_data:
+            # No hay sucursales disponibles
             return None
+
+        # Calcular espacio disponible para cada sucursal
+        max_space_sucursal = max(
+            sucursales_data,
+            key=lambda sucursal: sucursal[1] - sucursal[2]
+        )
+
+        id_branch_new_article = max_space_sucursal[0]
+        return id_branch_new_article
 
     def main_menu(self):
         while True:
