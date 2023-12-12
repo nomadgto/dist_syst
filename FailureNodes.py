@@ -174,7 +174,7 @@ class Nodo:
                     message = f"node_failure_node_active|{id}"
                     for ip in nodes_ips:
                         self.send_message_node_failure_node_active(ip, message)
-                    client_socket.send("node_failure_updated".encode())
+                    client_socket.send("master_node_failure_updated".encode())
 
                 elif parts_aux[0] == 'node_failure_node_active' and len(parts_aux) == 2:
                     id = parts_aux[1]
@@ -512,7 +512,7 @@ class Nodo:
 
         self.update_master_node_status(self.cursor, old_master, new_master)
 
-        self.check_active_nodes()
+        #self.check_active_nodes()
 
         message = f"new_master_node|{old_master}|{new_master}"
         nodes_ips = self.get_ip_active_nodes_less_master(self.cursor)
@@ -585,7 +585,7 @@ class Nodo:
         client_socket.connect((master_ip, 2222))
         client_socket.send(f"{message}".encode())
         data = client_socket.recv(1024).decode()
-        if data == "node_failure_updated":
+        if data == "master_node_failure_updated":
             pass
         client_socket.close()
 
