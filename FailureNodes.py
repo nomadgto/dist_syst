@@ -31,6 +31,8 @@ class Nodo:
 
         self.is_running = True
 
+        self.maximum_articles = 45
+
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
         print("\n")
@@ -66,7 +68,7 @@ class Nodo:
                     continue_second_part = continue_consensus_parts[1]
                     parts_id_continue_node = continue_first_part.split("-", 1)
                     id_continue_node = int(parts_id_continue_node[1])
-                    print(">> Continue Node ID: ",id_continue_node," - Message: ",continue_second_part)
+                    print(">>         Consenso: Nodo ID: ",id_continue_node," - Message: ",continue_second_part)
 
                     if id_continue_node == 1:
                         self.first_branch_consensus = continue_second_part
@@ -88,7 +90,7 @@ class Nodo:
                     start_second_part = start_consensus_parts[1]
                     parts_id_start_node = start_first_part.split("-", 1)
                     id_start_node = int(parts_id_start_node[1])
-                    print("\n\n>>    Start Node ID: ",id_start_node," - Message: ",start_second_part)
+                    print("\n\n>> Consenso: Nodo inicial ID: ",id_start_node," - Message: ",start_second_part)
 
                     if id_start_node == 1:
                         self.first_branch_consensus = start_second_part
@@ -512,8 +514,6 @@ class Nodo:
 
         self.update_master_node_status(self.cursor, old_master, new_master)
 
-        #self.check_active_nodes()
-
         message = f"new_master_node|{old_master}|{new_master}"
         nodes_ips = self.get_ip_active_nodes_less_master(self.cursor)
 
@@ -539,13 +539,13 @@ class Nodo:
         except ConnectionRefusedError:
             client_socket.close()
             self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
-            print("\n>> Elección: Seleccionado nuevo nodo maestro - Sucursal ID", self.get_current_sucursal_id())
+            print("\n>> Elección: Seleccionado nuevo nodo maestro - Nodo ID", self.get_current_sucursal_id())
             self.acquire_permission()
         except OSError as e:
             if "[Errno 113] No route to host" in str(e):
                 client_socket.close()
                 self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
-                print("\n>> Elección: Seleccionado nuevo nodo maestro - Sucursal ID", self.get_current_sucursal_id())
+                print("\n>> Elección: Seleccionado nuevo nodo maestro - Nodo ID", self.get_current_sucursal_id())
                 self.acquire_permission()
 
     def release_permission(self):
@@ -568,12 +568,12 @@ class Nodo:
             except ConnectionRefusedError:
                 client_socket.close()
                 self.node_failure(self.get_node_failure_id(ip))
-                print("\n>> Falla de nodo: Sucursal ID ",self.get_node_failure_id(ip))
+                print("\n>> Falla de nodo: Nodo ID ",self.get_node_failure_id(ip))
             except OSError as e:
                 if "[Errno 113] No route to host" in str(e):
                     client_socket.close()
                     self.node_failure(self.get_node_failure_id(ip))
-                    print("\n>> Falla de nodo: Sucursal ID ",self.get_node_failure_id(ip))
+                    print("\n>> Falla de nodo: Nodo ID ",self.get_node_failure_id(ip))
 
     # Función para enviar mensaje al nodo maestro sobre la falla de un nodo
     def node_failure(self, id):
@@ -813,6 +813,7 @@ class Nodo:
 
             choice = input(">> Ingrese su opción: ")
             if choice == '1':
+                self.acquire_permission()
                 usuario = input(">> Ingrese el usuario del cliente: ")
                 codigo = int(input(">> Ingrese el código del artículo: "))
 
@@ -821,8 +822,6 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
 
                 if user_exists and code_exists:
-
-                    self.acquire_permission()
 
                     # Verificar si el usuario está activo y si hay stock
                     usuario_activo = self.check_cliente_activo(usuario)
@@ -842,7 +841,7 @@ class Nodo:
 
                         self.create_guia_envio(self.cursor, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
 
-                    self.release_permission()
+                self.release_permission()
             elif choice == '2':
                 self.read_guia_envio()
             elif choice == '0':
