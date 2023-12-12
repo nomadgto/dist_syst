@@ -769,7 +769,9 @@ class Nodo:
 
             choice = input(">> Ingrese su opción: ")
             if choice == '1':
-                if self.sum_used_space_active_branches < self.sum_capacity_active_branches:
+                used_space = int(self.sum_used_space_active_branches())
+                capacity = int(self.sum_capacity_active_branches())
+                if used_space < capacity:
                     codigo = int(input(">> Ingrese el código del artículo: "))
     
                     # Verificar si el código ya existe y tiene el formato correcto
@@ -778,7 +780,7 @@ class Nodo:
                     if not code_exists:
                         nombre = input(">> Ingrese el nombre del artículo: ")
                         precio = float(input(">> Ingrese el precio del artículo: "))
-                        id_sucursal = self.master_node_distributes_new_article()
+                        id_sucursal = int(self.master_node_distributes_new_article())
 
                         self.acquire_permission()
                     
@@ -788,7 +790,7 @@ class Nodo:
                         self.create_articulo(self.cursor, codigo, nombre, precio, id_sucursal)
 
                         self.release_permission()
-                elif self.sum_used_space_active_branches == self.sum_capacity_active_branches:
+                elif used_space == capacity:
                     print("\n>> Aviso: Capacidad máxima de artículos alcanzada!!!\n")
             elif choice == '2':
                 self.read_articulo()
