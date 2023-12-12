@@ -6,6 +6,7 @@ import sqlite3
 import random
 import time
 from prettytable import PrettyTable
+from collections import Counter
 
 # Clase NODO
 class Nodo:
@@ -13,7 +14,21 @@ class Nodo:
         self.db_path = db_path
         self.connection = sqlite3.connect(db_path)
         self.cursor = self.connection.cursor()
-        self.semaphore = threading.Semaphore()
+
+        self.semaphore_mutual_exclusion = threading.Semaphore()
+        self.semaphore_consensus = threading.Semaphore()
+        self.semaphore_consensus_completion = threading.Semaphore()
+
+        self.active_nodes_count = 0
+        self.consensus_node_count = 0
+        self.consensus_completion_count = 0
+
+        self.first_branch_consensus = None
+        self.second_branch_consensus = None
+        self.third_branch_consensus = None
+        self.fourth_branch_consensus = None
+        self.fifth_branch_consensus = None
+
         self.is_running = True
 
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
@@ -31,15 +46,81 @@ class Nodo:
         try:
             data = client_socket.recv(1024).decode()
             if data:
+                local_connection = sqlite3.connect(self.db_path)
+                cursor = local_connection.cursor()
+                parts_aux = data.split('|')
+
                 if data == 'acquire_permission':
-                    self.semaphore.acquire()
+                    self.semaphore_mutual_exclusion.acquire()
                     client_socket.send("authorized_permission".encode())
                 elif data == 'release_permission':
-                    self.semaphore.release()
-                else:
-                    local_connection = sqlite3.connect(self.db_path)
-                    cursor = local_connection.cursor()
-                    parts = data.split('|')
+                    self.semaphore_mutual_exclusion.release()
+                elif data == 'consensus_over':
+                    with self.semaphore_consensus_completion:
+                        self.consensus_completion_count +=1
+                elif data == 'heart_beat':
+                    client_socket.send("still_here".encode())
+                elif data.startswith("continue_consensus"):
+                    continue_consensus_parts = data.split("|", 1)
+                    continue_first_part = continue_consensus_parts[0]
+                    continue_second_part = continue_consensus_parts[1]
+                    parts_id_continue_node = continue_first_part.split("-", 1)
+                    id_continue_node = int(parts_id_continue_node[1])
+                    print(">> Continue Node ID: ",id_continue_node," - Message: ",continue_second_part)
+
+                    if id_continue_node == 1:
+                        self.first_branch_consensus = continue_second_part
+                    elif id_continue_node == 2:
+                        self.second_branch_consensus = continue_second_part
+                    elif id_continue_node == 3:
+                        self.third_branch_consensus = continue_second_part
+                    elif id_continue_node == 4:
+                        self.fourth_branch_consensus = continue_second_part
+                    elif id_continue_node == 5:
+                        self.fifth_branch_consensus = continue_second_part
+
+                    with self.semaphore_consensus:
+                        self.consensus_node_count +=1
+                
+                elif data.startswith("start_consensus"):
+                    start_consensus_parts = data.split("|", 1)
+                    start_first_part = start_consensus_parts[0]
+                    start_second_part = start_consensus_parts[1]
+                    parts_id_start_node = start_first_part.split("-", 1)
+                    id_start_node = int(parts_id_start_node[1])
+                    print("\n\n>>    Start Node ID: ",id_start_node," - Message: ",start_second_part)
+
+                    if id_start_node == 1:
+                        self.first_branch_consensus = start_second_part
+                    elif id_start_node == 2:
+                        self.second_branch_consensus = start_second_part
+                    elif id_start_node == 3:
+                        self.third_branch_consensus = start_second_part
+                    elif id_start_node == 4:
+                        self.fourth_branch_consensus = start_second_part
+                    elif id_start_node == 5:
+                        self.fifth_branch_consensus = start_second_part
+
+                    self.consensus_node_count +=1
+                    self.send_messages_to_nodes_continue_consensus(cursor, id_start_node, start_second_part)
+                    self.active_nodes_count = int(self.get_active_nodes_count(cursor)) - 1
+                    while self.consensus_node_count < self.active_nodes_count:
+                        pass
+                    
+                    time.sleep(1)
+                    print("\n")
+
+                    cadenas = [
+                        self.first_branch_consensus,
+                        self.second_branch_consensus,
+                        self.third_branch_consensus,
+                        self.fourth_branch_consensus,
+                        self.fifth_branch_consensus
+                    ]
+
+                    cadenas_no_none = [cadena for cadena in cadenas if cadena is not None]
+                    cadena_mas_repetida = Counter(cadenas_no_none).most_common(1)[0][0]
+                    parts = cadena_mas_repetida.split('|')
 
                     if parts[0] == 'create_cliente' and len(parts) == 5:
                         usuario, nombre, direccion, tarjeta = parts[1:]
@@ -68,11 +149,42 @@ class Nodo:
                     elif parts[0] == 'create_guia_envio' and len(parts) == 7:
                         id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra = parts[1:]
                         self.create_guia_envio(cursor, int(id_cliente), int(id_articulo), int(id_sucursal), int(serie), float(monto_total), fecha_compra)
+
+                    self.consensus_node_count = 0
+
+                    self.first_branch_consensus = None
+                    self.second_branch_consensus = None
+                    self.third_branch_consensus = None
+                    self.fourth_branch_consensus = None
+                    self.fifth_branch_consensus = None
+
+                    ip_start_node = self.get_start_consensus_sucursal_ip(cursor, id_start_node)
+                    self.send_message_to_node(ip_start_node, "consensus_over")
                     
-                    cursor.close()
-                    local_connection.close()
+                elif parts_aux[0] == 'new_master_node' and len(parts_aux) == 3:
+                    old_master, new_master = parts_aux[1:]
+                    self.update_master_node_status(cursor, int(old_master), int(new_master))
+                    client_socket.send("new_master_updated".encode())
+
+                elif parts_aux[0] == 'node_failure' and len(parts_aux) == 2:
+                    id = parts_aux[1]
+                    self.update_node_failure(cursor, id)
+
+                    nodes_ips = self.get_ip_active_nodes_less_master(cursor)
+                    message = f"node_failure_node_active|{id}"
+                    for ip in nodes_ips:
+                        self.send_message_node_failure_node_active(ip, message)
+                    client_socket.send("node_failure_updated".encode())
+
+                elif parts_aux[0] == 'node_failure_node_active' and len(parts_aux) == 2:
+                    id = parts_aux[1]
+                    self.update_node_failure(cursor, id)
+                    client_socket.send("node_failure_updated".encode())
+
+                cursor.close()
+                local_connection.close()
         except Exception as e:
-            print(f"\n>> Error al recibir datos del cliente: {e} \n")
+            print(f"\n>> Error def handle_client: {e} \n")
         finally:
             client_socket.close()
 
@@ -143,11 +255,11 @@ class Nodo:
 
     def insert_initial_sucursales(self):
         sucursales_data = [
-            (1, '192.168.222.130', 1, 0, 1, 2,  0),
-            (2, '192.168.222.128', 0, 0, 1, 3,  0),
-            (3, '192.168.222.131', 0, 0, 1, 5,  0),
-            (4, '192.168.222.132', 0, 0, 1, 7,  0),
-            (5, '192.168.222.133', 0, 1, 1, 11, 0)
+            (1, '192.168.222.130', 0, 0, 1, 5,  0),
+            (2, '192.168.222.128', 0, 0, 0, 5,  0),
+            (3, '192.168.222.131', 0, 0, 1, 10,  0),
+            (4, '192.168.222.132', 0, 0, 1, 10,  0),
+            (5, '192.168.222.133', 1, 1, 0, 15, 0)
         ]
 
         for sucursal_data in sucursales_data:
@@ -247,6 +359,22 @@ class Nodo:
         """, (id_articulo,))
         cursor.connection.commit()
 
+    def update_master_node_status(self, cursor, old_master, new_master):
+        # Actualizar el nodo maestro antiguo
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET nodo_maestro = 0, status = 0
+            WHERE id_sucursal = ?
+        """, (old_master,))
+
+        # Actualizar el nuevo nodo maestro
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET nodo_maestro = 1
+            WHERE id_sucursal = ?
+        """, (new_master,))
+        cursor.connection.commit()
+
     def check_cliente_activo(self, usuario):
         self.cursor.execute("SELECT status FROM CLIENTE WHERE usuario = ?", (usuario,))
         status = self.cursor.fetchone()
@@ -288,13 +416,34 @@ class Nodo:
         self.cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_actual = 1 AND status = 1")
         return self.cursor.fetchone()[0]
 
+    def get_current_sucursal_id_continue_consensus(self, cursor):
+        cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_actual = 1 AND status = 1")
+        return cursor.fetchone()[0]
+
     def get_current_sucursal_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 1 AND status = 1")
+        return self.cursor.fetchone()[0]
+    
+    def get_start_consensus_sucursal_ip(self, cursor, id_start_consensus):
+        cursor.execute("SELECT ip FROM SUCURSAL WHERE id_sucursal = ?", (id_start_consensus,))
+        return cursor.fetchone()[0]
+    
+    def get_node_failure_id(self, ip):
+        self.cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE ip = ?", (ip,))
+        return self.cursor.fetchone()[0]
+    
+    def get_master_node_id(self):
+        self.cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_maestro = 1 AND status = 1")
         return self.cursor.fetchone()[0]
     
     def get_master_node_ip(self):
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_maestro = 1 AND status = 1")
         return self.cursor.fetchone()[0]
+        
+    def get_active_nodes_count(self, cursor):
+        cursor.execute("SELECT id_sucursal FROM SUCURSAL WHERE nodo_actual = 0 AND status = 1")
+        results = cursor.fetchall()
+        return len(results)
 
     def update_sucursal_info(self, cursor, nodo_id, status, espacio_usado):
         cursor.execute("""
@@ -323,30 +472,141 @@ class Nodo:
 
     # Función para enviar mensajes a todos los nodos actuales
     def send_messages_to_nodes(self, message):
+        id_actual_node = self.get_current_sucursal_id()
+        start_consensus = f"start_consensus-{id_actual_node}|{message}"
         self.cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 0 AND status = 1")
         nodes_ips = self.cursor.fetchall()
         for ip in nodes_ips:
-            self.send_message_to_node(ip[0], message)
+            self.send_message_to_node(ip[0], start_consensus)
+
+        self.active_nodes_count = int(self.get_active_nodes_count(self.cursor)) - 1
+
+        while self.consensus_completion_count < self.active_nodes_count:
+            pass
+
+        self.consensus_completion_count = 0
+
+    # Función para enviar mensajes a todos los nodos actuales
+    def send_messages_to_nodes_continue_consensus(self, cursor, id_start_node, message):
+        id_actual_node = self.get_current_sucursal_id_continue_consensus(cursor)
+        continue_consensus = f"continue_consensus-{id_actual_node}|{message}"
+        cursor.execute("""
+            SELECT ip FROM SUCURSAL 
+            WHERE nodo_actual = 0 AND status = 1 AND id_sucursal != ?""", (id_start_node,))
+        nodes_ips = cursor.fetchall()
+        for ip in nodes_ips:
+            self.send_message_to_node(ip[0], continue_consensus)
+
+    # Función para enviar mensaje de nuevo maestro a un nodo específico
+    def send_message_new_master_to_node(self, ip, message):
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((ip, 2222))
+        client_socket.send(f"{message}".encode())
+        data = client_socket.recv(1024).decode()
+        if data == "new_master_updated":
+            pass
+        client_socket.close()
+
+    # Función para enviar mensaje a los nodos sobre el cambio de maestro
+    def new_master_node(self, old_master, new_master):
+
+        self.update_master_node_status(self.cursor, old_master, new_master)
+
+        self.check_active_nodes()
+
+        message = f"new_master_node|{old_master}|{new_master}"
+        nodes_ips = self.get_ip_active_nodes_less_master(self.cursor)
+
+        for ip in nodes_ips:
+            self.send_message_new_master_to_node(ip, message)
+
+    def get_ip_active_nodes_less_master(self, cursor):
+        cursor.execute("SELECT ip FROM SUCURSAL WHERE nodo_actual = 0 AND nodo_maestro = 0 AND status = 1")
+        return [ip[0] for ip in cursor.fetchall()]
 
     def acquire_permission(self):
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            client_socket.settimeout(5)  # Establecer un tiempo de espera de 5 segundos
             master_ip = self.get_master_node_ip()
             client_socket.connect((master_ip, 2222))
             client_socket.send("acquire_permission".encode())
 
             data = client_socket.recv(1024).decode()
             if data == "authorized_permission":
-                print("\n>> Permiso autorizado.")
-        except socket.timeout:
-            print("\n>> Error: Tiempo de espera agotado. Nodo maestro fuera de linea.")
-        finally:
+                print("\n>> Exclusión mutua: Permiso autorizado.")
             client_socket.close()
+            self.check_active_nodes()
+        except ConnectionRefusedError:
+            client_socket.close()
+            self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
+            print("\n>> Elección: Seleccionado nuevo nodo maestro - Sucursal ID", self.get_current_sucursal_id())
+            self.acquire_permission()
+        except OSError as e:
+            if "[Errno 113] No route to host" in str(e):
+                client_socket.close()
+                self.new_master_node(self.get_master_node_id(), self.get_current_sucursal_id())
+                print("\n>> Elección: Seleccionado nuevo nodo maestro - Sucursal ID", self.get_current_sucursal_id())
+                self.acquire_permission()
 
     def release_permission(self):
         master_ip = self.get_master_node_ip()
         self.send_message_to_node(master_ip, "release_permission")
+        print("\n>> Exclusión mutua: Permiso finalizado.")
+
+    def check_active_nodes(self):
+        nodes_ips = self.get_ip_active_nodes_less_master(self.cursor)
+        for ip in nodes_ips:
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                client_socket.connect(( ip, 2222))
+                client_socket.send("heart_beat".encode())
+
+                data = client_socket.recv(1024).decode()
+                if data == "still_here":
+                    pass
+                client_socket.close()
+            except ConnectionRefusedError:
+                client_socket.close()
+                self.node_failure(self.get_node_failure_id(ip))
+                print("\n>> Falla de nodo: Sucursal ID ",self.get_node_failure_id(ip))
+            except OSError as e:
+                if "[Errno 113] No route to host" in str(e):
+                    client_socket.close()
+                    self.node_failure(self.get_node_failure_id(ip))
+                    print("\n>> Falla de nodo: Sucursal ID ",self.get_node_failure_id(ip))
+
+    # Función para enviar mensaje al nodo maestro sobre la falla de un nodo
+    def node_failure(self, id):
+
+        message = f"node_failure|{id}"
+
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        master_ip = self.get_master_node_ip()
+        client_socket.connect((master_ip, 2222))
+        client_socket.send(f"{message}".encode())
+        data = client_socket.recv(1024).decode()
+        if data == "node_failure_updated":
+            pass
+        client_socket.close()
+
+    def send_message_node_failure_node_active(self, ip, message):
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((ip, 2222))
+        client_socket.send(f"{message}".encode())
+        data = client_socket.recv(1024).decode()
+        if data == "node_failure_updated":
+            pass
+        client_socket.close()
+
+    def update_node_failure(self, cursor, id):
+        # Actualizar el nodo caido
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET status = 0
+            WHERE id_sucursal = ?
+        """, (id,))
+        cursor.connection.commit()
+
 
     def main_menu(self):
         while True:
@@ -561,6 +821,9 @@ class Nodo:
                 code_exists = self.check_code_exists(codigo)
 
                 if user_exists and code_exists:
+
+                    self.acquire_permission()
+
                     # Verificar si el usuario está activo y si hay stock
                     usuario_activo = self.check_cliente_activo(usuario)
                     stock_disponible = self.check_articulo_disponible(codigo)
@@ -574,14 +837,12 @@ class Nodo:
                         monto_total = self.get_articulo_price(codigo)
                         fecha_compra = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-                        self.acquire_permission()
-
                         message = f"create_guia_envio|{id_cliente}|{id_articulo}|{id_sucursal}|{serie}|{monto_total}|{fecha_compra}"
                         self.send_messages_to_nodes(message)
 
                         self.create_guia_envio(self.cursor, id_cliente, id_articulo, id_sucursal, serie, monto_total, fecha_compra)
 
-                        self.release_permission()
+                    self.release_permission()
             elif choice == '2':
                 self.read_guia_envio()
             elif choice == '0':
