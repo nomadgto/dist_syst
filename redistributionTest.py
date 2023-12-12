@@ -606,6 +606,13 @@ class Nodo:
         #cursor.connection.commit()
 
     def update_node_failure(self, cursor, id):
+        # Actualizar el nodo caido
+        cursor.execute("""
+            UPDATE SUCURSAL
+            SET status = 0
+            WHERE id_sucursal = ?
+        """, (id,))
+        cursor.connection.commit()
         try:
             # Obtener el espacio total disponible en las sucursales activas
             cursor.execute("SELECT SUM(capacidad - espacio_usado) FROM SUCURSAL WHERE status = 1 AND id_sucursal <> ?", (id,))
@@ -669,13 +676,12 @@ class Nodo:
                     SET espacio_usado = 0
                     WHERE id_sucursal = ?
                 """, (id,))
-
-                cursor.connection.commit()
             else:
                 print(f"Falla redistribución: No hay espacio disponible para la redistribución de los artículos del Nodo ID {id}")
-
         except Exception as e:
             print(f"\n>> Error en update_node_failure: {e} \n")
+        finally:
+            cursor.connection.commit()
 
     def sum_capacity_active_branches(self):
         self.cursor.execute("""
