@@ -864,10 +864,10 @@ class Nodo:
                     if not code_exists:
                         nombre = input(">> Ingrese el nombre del artículo: ")
                         precio = float(input(">> Ingrese el precio del artículo: "))
-                        id_sucursal = int(self.master_node_distributes_new_article())
 
                         self.acquire_permission()
-                    
+
+                        id_sucursal = int(self.master_node_distributes_new_article())
                         message = f"create_articulo|{codigo}|{nombre}|{precio}|{id_sucursal}"
                         self.send_messages_to_nodes(message)
                     
