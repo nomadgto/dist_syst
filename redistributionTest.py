@@ -31,8 +31,6 @@ class Nodo:
 
         self.is_running = True
 
-        self.maximum_articles = 15
-
     # Función que se ejecutará cuando se reciba una interrupción (Ctrl+C o Ctrl+Z)
     def signal_handler(self, sig, frame):
         print("\n")
@@ -260,11 +258,11 @@ class Nodo:
 
     def insert_initial_sucursales(self):
         sucursales_data = [
-            (1, '192.168.222.130', 0, 0, 1, 2, 0),
-            (2, '192.168.222.128', 0, 0, 1, 2, 0),
-            (3, '192.168.222.131', 0, 0, 1, 3, 0),
-            (4, '192.168.222.132', 0, 0, 1, 3, 0),
-            (5, '192.168.222.133', 0, 1, 1, 5, 0)
+            (1, '192.168.222.130', 0, 0, 1, 5, 0),
+            (2, '192.168.222.128', 0, 0, 1, 5, 0),
+            (3, '192.168.222.131', 0, 0, 1, 10, 0),
+            (4, '192.168.222.132', 0, 0, 1, 10, 0),
+            (5, '192.168.222.133', 0, 1, 1, 15, 0)
         ]
 
         for sucursal_data in sucursales_data:
