@@ -606,82 +606,75 @@ class Nodo:
         #cursor.connection.commit()
 
     def update_node_failure(self, cursor, id):
-        # Actualizar el nodo caido
-        cursor.execute("""
-            UPDATE SUCURSAL
-            SET status = 0
-            WHERE id_sucursal = ?
-        """, (id,))
-        cursor.connection.commit()
         try:
-            # Obtener el espacio total disponible en las sucursales activas
-            cursor.execute("SELECT SUM(capacidad - espacio_usado) FROM SUCURSAL WHERE status = 1 AND id_sucursal <> ?", (id,))
-            espacio_total_disponible = cursor.fetchone()[0]
+            # Actualizar el nodo caído
+            cursor.execute("""
+                UPDATE SUCURSAL
+                SET status = 0
+                WHERE id_sucursal = ?
+            """, (id,))
+            cursor.connection.commit()
 
-            # Obtener el espacio usado del nodo caído
-            cursor.execute("SELECT espacio_usado FROM SUCURSAL WHERE id_sucursal = ?", (id,))
-            espacio_usado_nodo_caido = cursor.fetchone()[0]
+            # Obtener la lista de artículos del nodo caído
+            cursor.execute("""
+                SELECT id_articulo, id_sucursal
+                FROM ARTICULO
+                WHERE id_sucursal = ?
+            """, (id,))
+            articles_to_redistribute = cursor.fetchall()
 
-            # Verificar si hay suficiente espacio disponible
-            if espacio_total_disponible >= espacio_usado_nodo_caido:
-                # Obtener los artículos del nodo caído
-                cursor.execute("SELECT * FROM ARTICULO WHERE id_sucursal = ?", (id,))
-                articulos_nodo_caido = cursor.fetchall()
+            # Verificar si hay espacio disponible en otros nodos activos
+            total_available_space = 0
+            active_nodes = cursor.execute("""
+                SELECT id_sucursal, capacidad, espacio_usado
+                FROM SUCURSAL
+                WHERE status = 1 AND id_sucursal != ?
+            """, (id,)).fetchall()
 
-                for articulo in articulos_nodo_caido:
-                    id_articulo, id_sucursal, codigo, nombre, precio, stock = articulo
-                    espacio_usado_nodo_destino = 0
+            for node in active_nodes:
+                available_space = node[1] - node[2]
+                total_available_space += available_space
 
-                    # Buscar un nodo activo con suficiente espacio disponible
+            # Verificar si hay suficiente espacio para redistribuir los artículos
+            if total_available_space >= len(articles_to_redistribute):
+                for article in articles_to_redistribute:
+                    article_id, original_node_id = article
+
+                    # Buscar el nodo con más espacio disponible
+                    best_fit_node = max(
+                        active_nodes,
+                        key=lambda x: x[1] - x[2]
+                    )
+
+                    # Restar el espacio_usado del nodo original
                     cursor.execute("""
-                        SELECT id_sucursal, capacidad, espacio_usado
-                        FROM SUCURSAL
-                        WHERE status = 1 AND id_sucursal <> ?
-                        ORDER BY capacidad - espacio_usado DESC
-                        LIMIT 1
-                    """, (id,))
-                    nodo_destino = cursor.fetchone()
+                        UPDATE SUCURSAL
+                        SET espacio_usado = espacio_usado - 1
+                        WHERE id_sucursal = ?
+                    """, (original_node_id,))
 
-                    if nodo_destino:
-                        id_sucursal_destino, capacidad_nodo_destino, espacio_usado_nodo_destino = nodo_destino
-                        espacio_disponible_nodo_destino = capacidad_nodo_destino - espacio_usado_nodo_destino
+                    # Actualizar el id_sucursal del artículo y ajustar el espacio_usado
+                    cursor.execute("""
+                        UPDATE ARTICULO
+                        SET id_sucursal = ?
+                        WHERE id_articulo = ?
+                    """, (best_fit_node[0], article_id))
 
-                        # Determinar cuánto espacio se necesita en el nodo destino
-                        espacio_necesario = min(espacio_disponible_nodo_destino, espacio_usado_nodo_caido)
+                    cursor.execute("""
+                        UPDATE SUCURSAL
+                        SET espacio_usado = espacio_usado + 1
+                        WHERE id_sucursal = ?
+                    """, (best_fit_node[0],))
 
-                        # Actualizar el id_sucursal del artículo en la tabla ARTICULO
-                        cursor.execute("""
-                            UPDATE ARTICULO
-                            SET id_sucursal = ?
-                            WHERE id_articulo = ?
-                        """, (id_sucursal_destino, id_articulo))
+                    cursor.connection.commit()
 
-                        # Actualizar el espacio usado del nodo destino
-                        cursor.execute("""
-                            UPDATE SUCURSAL
-                            SET espacio_usado = espacio_usado + ?
-                            WHERE id_sucursal = ?
-                        """, (espacio_necesario, id_sucursal_destino))
-
-                        # Actualizar el espacio usado del nodo caído
-                        cursor.execute("""
-                            UPDATE SUCURSAL
-                            SET espacio_usado = espacio_usado - ?
-                            WHERE id_sucursal = ?
-                        """, (espacio_necesario, id))
-
-                # Dejar la columna espacio_usado del nodo caído en 0
-                cursor.execute("""
-                    UPDATE SUCURSAL
-                    SET espacio_usado = 0
-                    WHERE id_sucursal = ?
-                """, (id,))
+                    # Imprimir información para propósitos de prueba
+                    print(f"Artículo {article_id} redistribuido de Nodo {original_node_id} a Nodo {best_fit_node[0]}")
             else:
                 print(f"Falla redistribución: No hay espacio disponible para la redistribución de los artículos del Nodo ID {id}")
+
         except Exception as e:
             print(f"\n>> Error en update_node_failure: {e} \n")
-        finally:
-            cursor.connection.commit()
 
     def sum_capacity_active_branches(self):
         self.cursor.execute("""
