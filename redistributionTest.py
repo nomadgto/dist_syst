@@ -385,6 +385,76 @@ class Nodo:
         """, (new_master,))
         cursor.connection.commit()
 
+        try:
+            # Actualizar el nodo caído
+            cursor.execute("""
+                UPDATE SUCURSAL
+                SET status = 0
+                WHERE id_sucursal = ?
+            """, (old_master,))
+            cursor.connection.commit()
+
+            # Obtener la lista de artículos del nodo caído
+            cursor.execute("""
+                SELECT id_articulo, id_sucursal
+                FROM ARTICULO
+                WHERE id_sucursal = ?
+            """, (old_master,))
+            articles_to_redistribute = cursor.fetchall()
+
+            # Verificar si hay espacio disponible en otros nodos activos
+            total_available_space = 0
+            active_nodes = cursor.execute("""
+                SELECT id_sucursal, capacidad, espacio_usado
+                FROM SUCURSAL
+                WHERE status = 1 AND id_sucursal != ?
+            """, (old_master,)).fetchall()
+
+            for node in active_nodes:
+                available_space = node[1] - node[2]
+                total_available_space += available_space
+
+            # Verificar si hay suficiente espacio para redistribuir los artículos
+            if total_available_space >= len(articles_to_redistribute):
+                for article in articles_to_redistribute:
+                    article_id, original_node_id = article
+
+                    # Buscar el nodo con más espacio disponible
+                    best_fit_node = max(
+                        active_nodes,
+                        key=lambda x: x[1] - x[2]
+                    )
+
+                    # Restar el espacio_usado del nodo original
+                    cursor.execute("""
+                        UPDATE SUCURSAL
+                        SET espacio_usado = espacio_usado - 1
+                        WHERE id_sucursal = ?
+                    """, (original_node_id,))
+
+                    # Actualizar el id_sucursal del artículo y ajustar el espacio_usado
+                    cursor.execute("""
+                        UPDATE ARTICULO
+                        SET id_sucursal = ?
+                        WHERE id_articulo = ?
+                    """, (best_fit_node[0], article_id))
+
+                    cursor.execute("""
+                        UPDATE SUCURSAL
+                        SET espacio_usado = espacio_usado + 1
+                        WHERE id_sucursal = ?
+                    """, (best_fit_node[0],))
+
+                    cursor.connection.commit()
+
+                    # Imprimir información para propósitos de prueba
+                    print(f"\n>> Artículo {article_id} redistribuido de Nodo {original_node_id} a Nodo {best_fit_node[0]}")
+            else:
+                print(f"\n>> Falla redistribución: No hay espacio disponible para la redistribución de los artículos del Nodo ID {old_master}")
+
+        except Exception as e:
+            print(f"\n>> Error en update_node_failure: {e} \n")
+
     def check_cliente_activo(self, usuario):
         self.cursor.execute("SELECT status FROM CLIENTE WHERE usuario = ?", (usuario,))
         status = self.cursor.fetchone()
@@ -596,15 +666,6 @@ class Nodo:
             pass
         client_socket.close()
 
-    #def update_node_failure(self, cursor, id):
-        # Actualizar el nodo caido
-        #cursor.execute("""
-        #    UPDATE SUCURSAL
-        #    SET status = 0
-        #    WHERE id_sucursal = ?
-        #""", (id,))
-        #cursor.connection.commit()
-
     def update_node_failure(self, cursor, id):
         try:
             # Actualizar el nodo caído
@@ -669,9 +730,9 @@ class Nodo:
                     cursor.connection.commit()
 
                     # Imprimir información para propósitos de prueba
-                    print(f"Artículo {article_id} redistribuido de Nodo {original_node_id} a Nodo {best_fit_node[0]}")
+                    print(f"\n>> Artículo {article_id} redistribuido de Nodo {original_node_id} a Nodo {best_fit_node[0]}")
             else:
-                print(f"Falla redistribución: No hay espacio disponible para la redistribución de los artículos del Nodo ID {id}")
+                print(f"\n>> Falla redistribución: No hay espacio disponible para la redistribución de los artículos del Nodo ID {id}")
 
         except Exception as e:
             print(f"\n>> Error en update_node_failure: {e} \n")
